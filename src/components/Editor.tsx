@@ -3,6 +3,7 @@ import { activeLayout, useRoom, useStore } from '../store';
 import { Plan2D, type Tool } from './Plan2D';
 import { LibraryPanel, PropertiesPanel, RoomPanel } from './Panels';
 import { Compare, ExportDialog, LayoutBar } from './Dialogs';
+import { AccountDialog } from './Account';
 import { LenInput } from './LenInput';
 import { analyzeWalkways } from '../analysis';
 
@@ -36,7 +37,7 @@ export function Editor() {
   const [view, setViewRaw] = useState<View>('2d');
   const [walk, setWalk] = useState(false);
   const [paths, setPaths] = useState(false);
-  const [dlg, setDlg] = useState<null | 'export' | 'compare'>(null);
+  const [dlg, setDlg] = useState<null | 'export' | 'compare' | 'account'>(null);
   const walkWidth = useStore((s) => s.walkWidth);
   const setView = (v: View) => { setViewRaw(v); setWalk(false); if (v === '3d') setTool('select'); };
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -129,7 +130,8 @@ export function Editor() {
 
   const overlays = (
     <>
-      {dlg === 'export' && <ExportDialog view={view} goTo3d={() => setView('3d')} onClose={() => setDlg(null)} />}
+      {dlg === 'export' && <ExportDialog view={view} goTo3d={() => setView('3d')} onClose={() => setDlg(null)} onNeedAccount={() => setDlg('account')} />}
+      {dlg === 'account' && <AccountDialog onClose={() => setDlg(null)} />}
       {dlg === 'compare' && <Compare onClose={() => setDlg(null)} />}
     </>
   );

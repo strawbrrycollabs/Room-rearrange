@@ -14,5 +14,5 @@ npm run build    # typecheck + production build with service worker
 - [x] Step 1: manual/draw room, 2D plan, furniture editing (local storage)
 - [x] Step 2: 3D view synced with the plan (orbit, walk-through)
 - [x] Step 3: layouts, compare, PNG/PDF export, walking-space + door-swing checks
-- [ ] Step 4: Google login and cloud sync (Supabase)
+- [x] Step 4: accounts, cloud sync and share links (Supabase, see SETUP.md)
 - [ ] Step 5: phone scanning

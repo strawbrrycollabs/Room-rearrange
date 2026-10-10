@@ -88,3 +88,32 @@ describe('walkways', () => {
     expect(checkDoors(r, [box('a', 250, 150, 330, 200)])[0].blocked).toBe(false);
   });
 });
+
+import { planSync } from './cloud';
+
+describe('sync planning', () => {
+  const R = (id: string, updatedAt: number) => room({ id, updatedAt });
+  const rem = (rows: [string, number, boolean?][]) => new Map(rows.map(([id, t, d]) => [id, { id, client_updated_at: t, deleted: !!d }]));
+  it('pushes new local rooms and pulls new remote rooms', () => {
+    const p = planSync([R('a', 5)], rem([['b', 9]]), []);
+    expect(p.push.map((r) => r.id)).toEqual(['a']);
+    expect(p.pullIds).toEqual(['b']);
+  });
+  it('last write wins in both directions', () => {
+    const p = planSync([R('a', 10), R('b', 5)], rem([['a', 7], ['b', 8]]), []);
+    expect(p.push.map((r) => r.id)).toEqual(['a']);
+    expect(p.pullIds).toEqual(['b']);
+  });
+  it('does nothing when in sync', () => {
+    const p = planSync([R('a', 7)], rem([['a', 7]]), []);
+    expect(p.push).toEqual([]); expect(p.pullIds).toEqual([]); expect(p.removeIds).toEqual([]);
+  });
+  it('applies remote deletions unless edited afterwards', () => {
+    expect(planSync([R('a', 5)], rem([['a', 9, true]]), []).removeIds).toEqual(['a']);
+    expect(planSync([R('a', 12)], rem([['a', 9, true]]), []).push.map((r) => r.id)).toEqual(['a']);
+  });
+  it('does not resurrect rooms deleted on this device', () => {
+    const p = planSync([], rem([['a', 5]]), ['a']);
+    expect(p.pullIds).toEqual([]);
+  });
+});

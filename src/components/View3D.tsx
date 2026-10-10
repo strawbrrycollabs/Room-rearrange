@@ -17,8 +17,9 @@ const PALETTE = {
 
 export type Joy = { x: number; y: number };
 
-export default function View3D({ walk, dark }: { walk: boolean; dark: boolean }) {
-  const room = useRoom()!;
+export default function View3D({ walk, dark, room: roomProp, readOnly = false }: { walk: boolean; dark: boolean; room?: Room; readOnly?: boolean }) {
+  const stored = useRoom();
+  const room = roomProp ?? stored!;
   const joy = useRef<Joy>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const b = useMemo(() => bounds(room.corners), [room.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -34,7 +35,7 @@ export default function View3D({ walk, dark }: { walk: boolean; dark: boolean })
         shadows
         dpr={[1, 2]}
         camera={{ fov: 50, near: 5, far: 20000, position: [b.minX + b.w / 2, size * camK, b.minY + b.h / 2 + size * (camK + 0.1)] }}
-        onPointerMissed={() => !walk && useStore.getState().select(null)}
+        onPointerMissed={() => !walk && !readOnly && useStore.getState().select(null)}
         style={{ touchAction: 'none' }}
       >
         <color attach="background" args={[pal.bg]} />
@@ -51,7 +52,7 @@ export default function View3D({ walk, dark }: { walk: boolean; dark: boolean })
         />
         <CaptureBridge />
         <Shell room={room} walk={walk} pal={pal} />
-        <Furnishings room={room} interactive={!walk} setDragging={setDragging} accent={pal.accent} />
+        <Furnishings room={room} interactive={!walk && !readOnly} setDragging={setDragging} accent={pal.accent} />
         {walk ? (
           <Walk room={room} joy={joy} />
         ) : (

@@ -6,14 +6,14 @@ import { bounds, clampOpening, dist, ensureClockwise, rectCorners } from './geom
 const KEY = 'roomshift:v1';
 const MAX_HISTORY = 100;
 
-type Persisted = { rooms: Room[]; unit: Unit; theme: Theme; onboarded: boolean; walkWidth: number };
+type Persisted = { rooms: Room[]; unit: Unit; theme: Theme; onboarded: boolean; walkWidth: number; deletedIds: string[] };
 
 function load(): Persisted {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { rooms: [], unit: 'metric', theme: 'system', onboarded: false, walkWidth: 70, ...JSON.parse(raw) };
+    if (raw) return { rooms: [], unit: 'metric', theme: 'system', onboarded: false, walkWidth: 70, deletedIds: [], ...JSON.parse(raw) };
   } catch { /* storage unavailable */ }
-  return { rooms: [], unit: 'metric', theme: 'system', onboarded: false, walkWidth: 70 };
+  return { rooms: [], unit: 'metric', theme: 'system', onboarded: false, walkWidth: 70, deletedIds: [] };
 }
 
 export function newRoom(name: string, corners: Pt[], ceilingHeight = 250): Room {
@@ -54,6 +54,9 @@ type State = Persisted & {
   addLayout(copy: boolean): void;
   renameLayout(id: string, name: string): void;
   deleteLayout(id: string): void;
+  /** Applies changes pulled from the cloud without touching updatedAt or undo history of other rooms. */
+  applyRemote(upsert: Room[], removeIds: string[], clearDeleted: string[]): void;
+  clearLocalData(): void;
   setUnit(u: Unit): void;
   setTheme(t: Theme): void;
   finishOnboarding(): void;
@@ -119,6 +122,22 @@ export const useStore = create<State>((set, get) => ({
     });
     set({ selectedId: null });
   },
+  applyRemote: (upsert, removeIds, clearDeleted) =>
+    set((s) => {
+      const byId = new Map(s.rooms.map((r) => [r.id, r]));
+      for (const r of upsert) byId.set(r.id, r);
+      for (const id of removeIds) byId.delete(id);
+      const rooms = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+      const cur = s.currentId;
+      const replaced = cur !== null && (upsert.some((r) => r.id === cur) || removeIds.includes(cur));
+      return {
+        rooms,
+        deletedIds: s.deletedIds.filter((id) => !clearDeleted.includes(id)),
+        currentId: cur && removeIds.includes(cur) ? null : cur,
+        ...(replaced ? { past: [], future: [], selectedId: null } : {}),
+      };
+    }),
+  clearLocalData: () => set({ rooms: [], deletedIds: [], currentId: null, selectedId: null, past: [], future: [] }),
   setUnit: (unit) => set({ unit }),
   setTheme: (theme) => set({ theme }),
   finishOnboarding: () => set({ onboarded: true }),
@@ -126,7 +145,7 @@ export const useStore = create<State>((set, get) => ({
 
   addRoom: (r) => set((s) => ({ rooms: [r, ...s.rooms], currentId: r.id, selectedId: null, past: [], future: [] })),
   openRoom: (id) => set({ currentId: id, selectedId: null, past: [], future: [] }),
-  deleteRoom: (id) => set((s) => ({ rooms: s.rooms.filter((r) => r.id !== id), currentId: s.currentId === id ? null : s.currentId })),
+  deleteRoom: (id) => set((s) => ({ rooms: s.rooms.filter((r) => r.id !== id), deletedIds: [...new Set([...s.deletedIds, id])], currentId: s.currentId === id ? null : s.currentId })),
   renameRoom: (id, name) => set((s) => ({ rooms: s.rooms.map((r) => (r.id === id ? { ...r, name } : r)) })),
 
   checkpoint: () => {
@@ -196,7 +215,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 useStore.subscribe((s) => {
   clearTimeout(timer);
   timer = setTimeout(() => {
-    const data: Persisted = { rooms: s.rooms, unit: s.unit, theme: s.theme, onboarded: s.onboarded, walkWidth: s.walkWidth };
+    const data: Persisted = { rooms: s.rooms, unit: s.unit, theme: s.theme, onboarded: s.onboarded, walkWidth: s.walkWidth, deletedIds: s.deletedIds };
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* quota or private mode */ }
   }, 200);
 });

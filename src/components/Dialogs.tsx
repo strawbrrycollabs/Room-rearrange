@@ -7,6 +7,7 @@ import { analyzeWalkways, floorCoverage } from '../analysis';
 import { findProblems } from '../geometry';
 import { fmtLen } from '../units';
 import type { Layout } from '../types';
+import { ShareSection } from './Account';
 
 export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -71,7 +72,7 @@ function ManageLayout({ layoutId, onClose }: { layoutId: string; onClose: () => 
 
 /* ---------------- Export ---------------- */
 
-export function ExportDialog({ onClose, view, goTo3d }: { onClose: () => void; view: '2d' | '3d'; goTo3d: () => void }) {
+export function ExportDialog({ onClose, view, goTo3d, onNeedAccount }: { onClose: () => void; view: '2d' | '3d'; goTo3d: () => void; onNeedAccount: () => void }) {
   const room = useRoom()!;
   const unit = useStore((s) => s.unit);
   const walkWidth = useStore((s) => s.walkWidth);
@@ -102,11 +103,12 @@ export function ExportDialog({ onClose, view, goTo3d }: { onClose: () => void; v
   const pdf = () => run('pdf', () => exportPdf(room, layout.name, layout.items, unit, walkWidth));
 
   return (
-    <Dialog title="Export" onClose={onClose}>
+    <Dialog title="Export & share" onClose={onClose}>
       <div className="stack tight">
         <button className="method" disabled={!!busy} onClick={png2d}><span className="m-icon">🖼️</span><span><strong>PNG: 2D plan</strong><small>Top-down plan with dimensions</small></span></button>
         <button className="method" disabled={!!busy} onClick={png3d}><span className="m-icon">🧊</span><span><strong>PNG: 3D view</strong><small>{view === '3d' ? 'Current camera angle' : 'Switches to 3D and captures it'}</small></span></button>
         <button className="method" disabled={!!busy} onClick={pdf}><span className="m-icon">📄</span><span><strong>PDF with dimensions</strong><small>Plan, walls, openings and furniture list (A4)</small></span></button>
+        <ShareSection roomId={room.id} onNeedAccount={onNeedAccount} />
         {busy && <p className="note">Preparing…</p>}
         {err && <p className="error">{err}</p>}
       </div>

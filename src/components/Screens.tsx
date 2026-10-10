@@ -5,6 +5,7 @@ import type { Pt } from '../types';
 import { LenInput } from './LenInput';
 import { fmtLen } from '../units';
 import { useViewport } from '../useViewport';
+import { AccountButton, AccountDialog } from './Account';
 
 /* ---------------- Onboarding (3 screens) ---------------- */
 
@@ -38,6 +39,7 @@ export function Home({ onCreate }: { onCreate: () => void }) {
   const unit = useStore((s) => s.unit);
   const { openRoom, deleteRoom, setUnit, setTheme } = useStore.getState();
   const theme = useStore((s) => s.theme);
+  const [account, setAccount] = useState(false);
   return (
     <div className="screen home">
       <header className="topbar">
@@ -45,7 +47,9 @@ export function Home({ onCreate }: { onCreate: () => void }) {
         <div className="grow" />
         <button className="btn icon" aria-label="Toggle units" onClick={() => setUnit(unit === 'metric' ? 'imperial' : 'metric')}>{unit === 'metric' ? 'm' : 'ft'}</button>
         <button className="btn icon" aria-label="Theme" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? '☀️' : '🌙'}</button>
+        <AccountButton onClick={() => setAccount(true)} />
       </header>
+      {account && <AccountDialog onClose={() => setAccount(false)} />}
       {rooms.length === 0 ? (
         <div className="center grow">
           <div className="onboard-art">🏠</div>
