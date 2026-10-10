@@ -32,6 +32,7 @@ export function AimScan({ onResult, onCancel }: { onResult: (r: ScanResult) => v
   const [ceiling, setCeiling] = useState<number | null>(null);
   const [station, setStation] = useState<Pt>({ x: 0, y: 0 });
   const [anchorK, setAnchorK] = useState(0);
+  const [noMotion, setNoMotion] = useState(false);
   const [hud, setHud] = useState<{ el: number; d: number | null; err: number | null } | null>(null);
 
   const video = useRef<HTMLVideoElement>(null);
@@ -61,7 +62,9 @@ export function AimScan({ onResult, onCancel }: { onResult: (r: ScanResult) => v
   useEffect(() => {
     if (phase !== 'live') return;
     window.addEventListener('deviceorientation', onOrient);
-    return () => window.removeEventListener('deviceorientation', onOrient);
+    // If nothing arrives, the sensors are blocked (preview frames, in-app browsers) or missing.
+    const t = setTimeout(() => { if (!buf.current.length) setNoMotion(true); }, 3000);
+    return () => { window.removeEventListener('deviceorientation', onOrient); clearTimeout(t); };
   }, [phase, onOrient]);
 
   const start = async () => {
@@ -70,7 +73,9 @@ export function AimScan({ onResult, onCancel }: { onResult: (r: ScanResult) => v
     try {
       // iOS asks for motion access, and only inside a tap.
       const DOE = (window as unknown as { DeviceOrientationEvent?: { requestPermission?: () => Promise<string> } }).DeviceOrientationEvent;
-      if (DOE?.requestPermission && (await DOE.requestPermission()) !== 'granted') throw new Error('Motion access was denied. Allow it in Settings → Safari → Motion & Orientation Access.');
+      if (DOE?.requestPermission && (await DOE.requestPermission()) !== 'granted') {
+        throw new Error('Motion access was not allowed. On iPhone there is no setting to switch on: Safari asks each time you open the page. Close this tab, open the page again, tap Start camera and choose Allow.');
+      }
       stream.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
       setPhase('live');
       requestAnimationFrame(() => { if (video.current) { video.current.srcObject = stream.current; void video.current.play(); } });
@@ -159,6 +164,8 @@ export function AimScan({ onResult, onCancel }: { onResult: (r: ScanResult) => v
             {hud.d !== null && hud.err !== null && <small>{hud.err > 25 ? `⚠ ±${fmtLen(hud.err, unit)} — move closer to this corner` : `±${fmtLen(hud.err, unit)}`}</small>}
             <small>{corners.length} corners · {openings.length} openings{ceiling ? ` · ceiling ${fmtLen(ceiling, unit)}` : ''}</small>
           </>
+        ) : noMotion ? (
+          <><b>No motion data</b><small>Open this page directly in Safari or Chrome (not inside another app or a preview) and allow motion access when asked.</small></>
         ) : <b>Move the phone slightly to wake the motion sensors…</b>}
       </div>
       {msg && <div className="hint aim-toast">{msg}</div>}
