@@ -6,6 +6,7 @@ import { LenInput } from './LenInput';
 import { fmtLen } from '../units';
 import { useViewport } from '../useViewport';
 import { AccountButton, AccountDialog } from './Account';
+import { ScanFlow } from '../scan/ScanFlow';
 
 /* ---------------- Onboarding (3 screens) ---------------- */
 
@@ -89,19 +90,20 @@ export function Home({ onCreate }: { onCreate: () => void }) {
 
 /* ---------------- Create room ---------------- */
 
-type Method = 'choose' | 'manual' | 'draw';
+type Method = 'choose' | 'manual' | 'draw' | 'scan';
 
 export function CreateRoom({ onCancel }: { onCancel: () => void }) {
   const [m, setM] = useState<Method>('choose');
   if (m === 'manual') return <ManualForm onBack={() => setM('choose')} />;
   if (m === 'draw') return <DrawRoom onBack={() => setM('choose')} />;
+  if (m === 'scan') return <ScanFlow onBack={() => setM('choose')} onManual={() => setM('manual')} />;
   return (
     <div className="screen">
       <header className="topbar"><button className="btn icon" onClick={onCancel} aria-label="Back">←</button><h2>New room</h2></header>
       <div className="stack">
-        <button className="method" disabled>
+        <button className="method" onClick={() => setM('scan')}>
           <span className="m-icon">📱</span>
-          <span><strong>Scan with phone</strong><small>Guided camera scan — coming in a later step</small></span>
+          <span><strong>Scan with phone</strong><small>Camera or AR scan, editable afterwards</small></span>
         </button>
         <button className="method" onClick={() => setM('manual')}>
           <span className="m-icon">📏</span>

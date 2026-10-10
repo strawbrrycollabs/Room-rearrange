@@ -195,3 +195,32 @@ svg.plan.tool-measure { cursor: crosshair; }
 .shared-plan { overflow: auto; display: grid; place-items: center; padding: 8px; background: var(--surface); }
 .shared-svg { width: 100%; height: 100%; max-height: 100%; border-radius: 14px; background: #fff; }
 code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 13px; }
+
+/* scanning */
+.steps { padding-left: 20px; margin: 0; color: var(--text); display: grid; gap: 8px; }
+.tag { font-style: normal; font-size: 11px; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 2px 8px; margin-left: 6px; font-weight: 500; }
+.check { display: flex; gap: 10px; align-items: center; min-height: 44px; }
+.check input { width: 20px; height: 20px; accent-color: var(--accent); }
+.list-row.off { opacity: .45; }
+.aim { position: fixed; inset: 0; background: #000; color: #fff; z-index: 40; overflow: hidden; }
+.aim-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.aim-cross { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; transform: translate(-50%, -50%); pointer-events: none; }
+.aim-cross::before, .aim-cross::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.aim-cross::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+.aim-cross::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+.aim-top, .ar-overlay .aim-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.aim-top .btn { background: rgba(0,0,0,.55); color: #fff; border-color: rgba(255,255,255,.25); }
+.aim-status { background: rgba(0,0,0,.6); border-radius: 99px; padding: 8px 14px; font-weight: 600; text-align: center; }
+.aim-hud { position: absolute; top: calc(76px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; background: rgba(0,0,0,.55); border-radius: 14px; padding: 8px 14px; text-align: center; max-width: 92%; }
+.aim-hud small { opacity: .85; }
+.aim-toast { top: auto; bottom: 230px; background: #fff; color: #111; }
+.aim-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 12px calc(14px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; background: linear-gradient(transparent, rgba(0,0,0,.7)); }
+.aim-bottom .seg, .aim-bottom .chip { background: rgba(0,0,0,.55); border-color: rgba(255,255,255,.2); color: #fff; }
+.aim-bottom .seg button { color: #fff; } .aim-bottom .seg button.on { background: #fff; color: #111; }
+.aim-bottom .chips { background: none; }
+.aim-actions { display: flex; align-items: center; justify-content: space-between; }
+.aim-actions .btn { min-width: 72px; background: rgba(0,0,0,.55); color: #fff; border-color: rgba(255,255,255,.25); }
+.aim-actions .btn.primary { background: var(--accent); }
+.shutter { width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,.25); }
+.shutter:active { background: #fff; }
+.ar-overlay.running { position: fixed; inset: 0; color: #fff; }

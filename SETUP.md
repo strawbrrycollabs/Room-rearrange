@@ -37,3 +37,10 @@ For hosting (Vercel/Netlify/…), set the same two variables in the host's envir
 *Export & share → Create link* makes a long random link (`/#/s/<token>`). Anyone with it can view the room in 2D/3D and walk
 through it, or save their own copy; they cannot edit yours. The link always shows your latest synced version.
 Press ✕ next to a link to stop sharing.
+
+## Phone scanning
+Needs HTTPS (camera and motion sensors only work on secure pages; `localhost` is fine for development).
+- **AR scan**: WebXR hit-testing. Works on Android phones with Chrome and Google Play Services for AR (ARCore). Not available on iPhone.
+- **Aim & tap**: any phone with a camera and motion sensors, including iPhone (Safari asks for motion access).
+  Distance is estimated from the phone's height above the floor and the angle to the floor corner, so accuracy is roughly
+  ±5–10% for corners aimed at from 1.5–4 m away. The review screen can straighten walls to right angles.
