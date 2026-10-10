@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { activeLayout, useRoom, useStore } from '../store';
 import { Plan2D, type Tool } from './Plan2D';
 import { LibraryPanel, PropertiesPanel, RoomPanel } from './Panels';
 
+const View3D = lazy(() => import('./View3D'));
+
+type View = '2d' | '3d';
 type Sheet = null | 'library' | 'room' | 'props';
 
 function useDesktop() {
@@ -27,6 +30,9 @@ export function Editor() {
   const canRedo = useStore((s) => s.future.length > 0);
   const [tool, setTool] = useState<Tool>('select');
   const [snapOn, setSnapOn] = useState(true);
+  const [view, setViewRaw] = useState<View>('2d');
+  const [walk, setWalk] = useState(false);
+  const setView = (v: View) => { setViewRaw(v); setWalk(false); if (v === '3d') setTool('select'); };
   const [sheet, setSheet] = useState<Sheet>(null);
   const [tab, setTab] = useState<'library' | 'room'>('library');
   const items = activeLayout(room).items;
@@ -38,6 +44,9 @@ export function Editor() {
     if (selectedId) setSheet('props');
     else setSheet((s) => (s === 'props' ? null : s));
   }, [selectedId, desktop]);
+
+  const walkRef = useRef(false);
+  walkRef.current = walk;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,11 +60,12 @@ export function Editor() {
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? st.redo() : st.undo(); return; }
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); st.redo(); return; }
       if (mod && e.key.toLowerCase() === 'd' && item) { e.preventDefault(); st.duplicateItem(item.id); return; }
-      if (e.key === 'Escape') { st.select(null); setTool('select'); return; }
+      if (e.key === 'Escape') { st.select(null); setTool('select'); setWalk(false); return; }
       if (!item) return;
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); st.removeItem(item.id); return; }
       if (e.key.toLowerCase() === 'r') { st.updateItem(item.id, { rotation: (item.rotation + (e.shiftKey ? -15 : 15) + 360) % 360 }, ''); return; }
       if (e.key.toLowerCase() === 'l') { st.updateItem(item.id, { locked: !item.locked }, ''); return; }
+      if (walkRef.current) return;
       const step = e.shiftKey ? 10 : 1;
       const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
       if (d && !item.locked) { e.preventDefault(); st.updateItem(item.id, { x: item.x + d[0], y: item.y + d[1] }, `nudge:${item.id}`); }
@@ -83,11 +93,35 @@ export function Editor() {
     <div className={desktop ? 'toolrail' : 'bottombar'}>
       {!desktop && <button className={`tb${sheet === 'library' ? ' on' : ''}`} onClick={() => setSheet(sheet === 'library' ? null : 'library')}><i>＋</i>Furniture</button>}
       {!desktop && <button className={`tb${sheet === 'room' ? ' on' : ''}`} onClick={() => setSheet(sheet === 'room' ? null : 'room')}><i>⌂</i>Room</button>}
-      <button className={`tb${tool === 'measure' ? ' on' : ''}`} onClick={() => setTool(tool === 'measure' ? 'select' : 'measure')}><i>📏</i>Measure</button>
-      <button className={`tb${tool === 'corners' ? ' on' : ''}`} onClick={() => setTool(tool === 'corners' ? 'select' : 'corners')}><i>✥</i>Corners</button>
+      {view === '2d' ? (
+        <>
+          <button className={`tb${tool === 'measure' ? ' on' : ''}`} onClick={() => setTool(tool === 'measure' ? 'select' : 'measure')}><i>📏</i>Measure</button>
+          <button className={`tb${tool === 'corners' ? ' on' : ''}`} onClick={() => setTool(tool === 'corners' ? 'select' : 'corners')}><i>✥</i>Corners</button>
+        </>
+      ) : (
+        <button className="tb" onClick={() => { useStore.getState().select(null); setWalk(true); }}><i>🚶</i>Walk</button>
+      )}
       <button className={`tb${snapOn ? ' on' : ''}`} onClick={() => setSnapOn(!snapOn)}><i>🧲</i>Snap</button>
       {!desktop && <button className="tb" disabled={!selected} onClick={() => setSheet('props')}><i>✎</i>Edit</button>}
     </div>
+  );
+
+  const toggle = walk ? (
+    <div className="view-toggle"><button className="btn primary" onClick={() => setWalk(false)}>Exit walk</button></div>
+  ) : (
+    <div className="view-toggle seg">
+      <button className={view === '2d' ? 'on' : ''} onClick={() => setView('2d')}>2D</button>
+      <button className={view === '3d' ? 'on' : ''} onClick={() => setView('3d')}>3D</button>
+    </div>
+  );
+
+  const canvas = view === '2d' ? (
+    <Plan2D tool={tool} snapOn={snapOn} />
+  ) : (
+    <Suspense fallback={<div className="canvas-wrap loading">Loading 3D…</div>}>
+      <View3D walk={walk} dark={dark} />
+      {walk && <div className="hint">Drag to look · WASD / arrows or the stick to move · Esc to exit</div>}
+    </Suspense>
   );
 
   if (desktop) {
@@ -100,11 +134,12 @@ export function Editor() {
               <button className={tab === 'library' ? 'on' : ''} onClick={() => setTab('library')}>Furniture</button>
               <button className={tab === 'room' ? 'on' : ''} onClick={() => setTab('room')}>Room</button>
             </div>
-            {tab === 'library' ? <LibraryPanel /> : <RoomPanel cornerMode={tool === 'corners'} onCornerMode={(v) => setTool(v ? 'corners' : 'select')} />}
+            {tab === 'library' ? <LibraryPanel /> : <RoomPanel cornerMode={tool === 'corners'} onCornerMode={(v) => { if (v) setView('2d'); setTool(v ? 'corners' : 'select'); }} />}
           </aside>
           <main className="stage">
-            <Plan2D tool={tool} snapOn={snapOn} />
-            {toolbar}
+            {canvas}
+            {toggle}
+            {!walk && toolbar}
           </main>
           <aside className="side right">
             <h3>{selected ? selected.name : 'Properties'}</h3>
@@ -120,9 +155,10 @@ export function Editor() {
     <div className="editor mobile">
       {top}
       <main className="stage">
-        <Plan2D tool={tool} snapOn={snapOn} />
+        {canvas}
+        {toggle}
       </main>
-      {toolbar}
+      {!walk && toolbar}
       {sheet && (
         <div className={`sheet${sheet === 'props' ? ' props' : ''}`} role="dialog">
           <div className="sheet-handle" onClick={() => setSheet(null)} />
@@ -132,7 +168,7 @@ export function Editor() {
           </div>
           <div className="sheet-scroll">
             {sheet === 'library' && <LibraryPanel onAdded={() => setSheet(null)} />}
-            {sheet === 'room' && <RoomPanel cornerMode={tool === 'corners'} onCornerMode={(v) => { setTool(v ? 'corners' : 'select'); if (v) setSheet(null); }} />}
+            {sheet === 'room' && <RoomPanel cornerMode={tool === 'corners'} onCornerMode={(v) => { if (v) setView('2d'); setTool(v ? 'corners' : 'select'); if (v) setSheet(null); }} />}
             {sheet === 'props' && <PropertiesPanel />}
           </div>
         </div>

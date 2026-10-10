@@ -147,3 +147,12 @@ svg.plan.tool-measure { cursor: crosshair; }
 .lib-item small { color: var(--muted); }
 .lib-shape { display: block; width: 52px; max-height: 56px; margin-bottom: 4px; border: 1px solid var(--border); }
 @media (min-width: 900px) { .sheet { display: none; } }
+
+/* 3D */
+.view-toggle { position: absolute; top: 12px; right: 12px; z-index: 5; background: var(--bg); box-shadow: var(--shadow); }
+.view-toggle.seg button { min-width: 48px; }
+.canvas-wrap.loading { display: grid; place-items: center; color: var(--muted); }
+.canvas-wrap canvas { display: block; outline: none; }
+.joystick { position: absolute; left: 20px; bottom: calc(24px + env(safe-area-inset-bottom)); width: 128px; height: 128px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); opacity: .9; touch-action: none; display: grid; place-items: center; }
+.knob { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow); pointer-events: none; }
+.canvas-wrap > div:first-child { position: absolute !important; inset: 0; width: auto !important; height: auto !important; }
