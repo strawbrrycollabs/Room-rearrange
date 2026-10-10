@@ -2,7 +2,7 @@ import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState 
 import { activeLayout, useRoom, useStore } from '../store';
 import { Plan2D, type Tool } from './Plan2D';
 import { LibraryPanel, PropertiesPanel, RoomPanel } from './Panels';
-import { Compare, ExportDialog, LayoutBar } from './Dialogs';
+import { Compare, Dialog, ExportDialog, LayoutBar } from './Dialogs';
 import { AccountDialog } from './Account';
 import { LenInput } from './LenInput';
 import { analyzeWalkways } from '../analysis';
@@ -37,7 +37,7 @@ export function Editor() {
   const [view, setViewRaw] = useState<View>('2d');
   const [walk, setWalk] = useState(false);
   const [paths, setPaths] = useState(false);
-  const [dlg, setDlg] = useState<null | 'export' | 'compare' | 'account'>(null);
+  const [dlg, setDlg] = useState<null | 'export' | 'compare' | 'account' | 'menu'>(null);
   const walkWidth = useStore((s) => s.walkWidth);
   const setView = (v: View) => { setViewRaw(v); setWalk(false); if (v === '3d') setTool('select'); };
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -91,11 +91,17 @@ export function Editor() {
       <button className="btn icon" aria-label="Back to rooms" onClick={() => openRoom(null)}>←</button>
       <h2 className="ellipsis">{room.name}</h2>
       <div className="grow" />
-      <button className="btn icon" aria-label="Export" onClick={() => setDlg('export')}>⬇</button>
       <button className="btn icon" aria-label="Undo" disabled={!canUndo} onClick={undo}>↶</button>
       <button className="btn icon" aria-label="Redo" disabled={!canRedo} onClick={redo}>↷</button>
-      <button className="btn icon" aria-label="Toggle units" onClick={() => setUnit(unit === 'metric' ? 'imperial' : 'metric')}>{unit === 'metric' ? 'm' : 'ft'}</button>
-      <button className="btn icon" aria-label="Toggle theme" onClick={() => setTheme(dark ? 'light' : 'dark')}>{dark ? '☀️' : '🌙'}</button>
+      {desktop ? (
+        <>
+          <button className="btn icon" aria-label="Export" onClick={() => setDlg('export')}>⬇</button>
+          <button className="btn icon" aria-label="Toggle units" onClick={() => setUnit(unit === 'metric' ? 'imperial' : 'metric')}>{unit === 'metric' ? 'm' : 'ft'}</button>
+          <button className="btn icon" aria-label="Toggle theme" onClick={() => setTheme(dark ? 'light' : 'dark')}>{dark ? '☀️' : '🌙'}</button>
+        </>
+      ) : (
+        <button className="btn icon" aria-label="Menu" onClick={() => setDlg('menu')}>⋯</button>
+      )}
     </header>
   );
 
@@ -131,6 +137,16 @@ export function Editor() {
   const overlays = (
     <>
       {dlg === 'export' && <ExportDialog view={view} goTo3d={() => setView('3d')} onClose={() => setDlg(null)} onNeedAccount={() => setDlg('account')} />}
+      {dlg === 'menu' && (
+        <Dialog title="Menu" onClose={() => setDlg(null)}>
+          <div className="stack tight">
+            <button className="method" onClick={() => setDlg('export')}><span className="m-icon">⬇️</span><span><strong>Export &amp; share</strong><small>PNG, PDF, view-only link</small></span></button>
+            <div className="seg"><button className={unit === 'metric' ? 'on' : ''} onClick={() => setUnit('metric')}>Metric (m, cm)</button><button className={unit === 'imperial' ? 'on' : ''} onClick={() => setUnit('imperial')}>Feet &amp; inches</button></div>
+            <div className="seg"><button className={!dark ? 'on' : ''} onClick={() => setTheme('light')}>Light</button><button className={dark ? 'on' : ''} onClick={() => setTheme('dark')}>Dark</button></div>
+            <button className="method" onClick={() => setDlg('account')}><span className="m-icon">👤</span><span><strong>Account &amp; sync</strong><small>Sign in to sync across devices</small></span></button>
+          </div>
+        </Dialog>
+      )}
       {dlg === 'account' && <AccountDialog onClose={() => setDlg(null)} />}
       {dlg === 'compare' && <Compare onClose={() => setDlg(null)} />}
     </>
