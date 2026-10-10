@@ -54,3 +54,37 @@ describe('geometry', () => {
     expect(walls(c)[2].length).toBeCloseTo(500);
   });
 });
+
+import { analyzeWalkways, checkDoors } from './analysis';
+import type { Room } from './types';
+
+const room = (over: Partial<Room> = {}): Room => ({
+  id: 'r', name: 'r', corners: rectCorners(400, 300), ceilingHeight: 250, openings: [], layouts: [], activeLayoutId: '', updatedAt: 0, ...over,
+});
+const box = (id: string, x0: number, y0: number, x1: number, y1: number) =>
+  item({ id, x: (x0 + x1) / 2, y: (y0 + y1) / 2, width: x1 - x0, depth: y1 - y0 });
+
+describe('walkways', () => {
+  it('flags a 50 cm gap between two wardrobes that divide the room', () => {
+    const items = [box('a', 150, 0, 250, 125), box('b', 150, 175, 250, 300)];
+    expect(analyzeWalkways(room(), items, 70).count).toBeGreaterThan(0);
+  });
+  it('flags a lane between a bed and a wardrobe in an open room', () => {
+    const items = [box('a', 100, 10, 250, 70), box('b', 100, 116, 260, 316)];
+    expect(analyzeWalkways(room(), items, 70).count).toBeGreaterThan(0);
+  });
+  it('does not flag room corners or furniture standing free', () => {
+    expect(analyzeWalkways(room(), [box('a', 150, 100, 250, 200)], 70).count).toBe(0);
+    expect(analyzeWalkways(room(), [box('a', 0, 0, 100, 60)], 70).count).toBe(0);
+  });
+  it('accepts an 90 cm gap and an empty room', () => {
+    const items = [box('a', 150, 0, 250, 105), box('b', 150, 195, 250, 300)];
+    expect(analyzeWalkways(room(), items, 70).count).toBe(0);
+    expect(analyzeWalkways(room(), [], 70).count).toBe(0);
+  });
+  it('detects a door blocked by furniture', () => {
+    const r = room({ openings: [{ id: 'd', kind: 'door', wall: 0, offset: 50, width: 90, height: 205, sill: 0, swing: 'in', hinge: 'start' }] });
+    expect(checkDoors(r, [box('a', 60, 20, 140, 70)])[0].blocked).toBe(true);
+    expect(checkDoors(r, [box('a', 250, 150, 330, 200)])[0].blocked).toBe(false);
+  });
+});

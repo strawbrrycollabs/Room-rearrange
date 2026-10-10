@@ -5,6 +5,7 @@ import {
 } from '../geometry';
 import type { Furniture, Pt } from '../types';
 import { fmtLen } from '../units';
+import type { Walkways } from '../analysis';
 import { useViewport } from '../useViewport';
 
 export type Tool = 'select' | 'measure' | 'corners';
@@ -19,7 +20,7 @@ type Gesture =
 
 const wallOf = (n: number) => n;
 
-export function Plan2D({ tool, snapOn }: { tool: Tool; snapOn: boolean }) {
+export function Plan2D({ tool, snapOn, walkways }: { tool: Tool; snapOn: boolean; walkways?: Walkways | null }) {
   const room = useRoom()!;
   const unit = useStore((s) => s.unit);
   const selectedId = useStore((s) => s.selectedId);
@@ -195,6 +196,13 @@ export function Plan2D({ tool, snapOn }: { tool: Tool; snapOn: boolean }) {
           <polygon points={poly} fill="none" stroke="var(--wall)" strokeWidth={10} strokeLinejoin="miter" />
           <polygon points={poly} fill="var(--floor)" />
           <polygon points={poly} fill="url(#g10)" opacity={k * 10 >= 7 ? 0.6 : 0} pointerEvents="none" />
+
+          {walkways && walkways.narrow.map((p, i) => (
+            <rect key={i} x={p.x - walkways.cell / 2} y={p.y - walkways.cell / 2} width={walkways.cell + 0.4} height={walkways.cell + 0.4} fill="#f59e0b" opacity={0.5} pointerEvents="none" />
+          ))}
+          {walkways && walkways.doors.filter((d) => d.blocked).map((d) => (
+            <polygon key={d.id} points={d.swing.map((p) => `${p.x},${p.y}`).join(' ')} fill="var(--danger)" opacity={0.35} pointerEvents="none" />
+          ))}
 
           {/* openings */}
           {room.openings.map((o) => {

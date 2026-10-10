@@ -1,7 +1,10 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { activeLayout, useRoom, useStore } from '../store';
 import { Plan2D, type Tool } from './Plan2D';
 import { LibraryPanel, PropertiesPanel, RoomPanel } from './Panels';
+import { Compare, ExportDialog, LayoutBar } from './Dialogs';
+import { LenInput } from './LenInput';
+import { analyzeWalkways } from '../analysis';
 
 const View3D = lazy(() => import('./View3D'));
 
@@ -32,10 +35,15 @@ export function Editor() {
   const [snapOn, setSnapOn] = useState(true);
   const [view, setViewRaw] = useState<View>('2d');
   const [walk, setWalk] = useState(false);
+  const [paths, setPaths] = useState(false);
+  const [dlg, setDlg] = useState<null | 'export' | 'compare'>(null);
+  const walkWidth = useStore((s) => s.walkWidth);
   const setView = (v: View) => { setViewRaw(v); setWalk(false); if (v === '3d') setTool('select'); };
   const [sheet, setSheet] = useState<Sheet>(null);
   const [tab, setTab] = useState<'library' | 'room'>('library');
   const items = activeLayout(room).items;
+  const deferredItems = useDeferredValue(items);
+  const walkways = useMemo(() => (paths && view === '2d' ? analyzeWalkways(room, deferredItems, walkWidth) : null), [paths, view, room.corners, room.openings, deferredItems, walkWidth]); // eslint-disable-line react-hooks/exhaustive-deps
   const selected = items.find((i) => i.id === selectedId);
 
   // Selecting something on mobile opens the properties sheet.
@@ -82,6 +90,7 @@ export function Editor() {
       <button className="btn icon" aria-label="Back to rooms" onClick={() => openRoom(null)}>←</button>
       <h2 className="ellipsis">{room.name}</h2>
       <div className="grow" />
+      <button className="btn icon" aria-label="Export" onClick={() => setDlg('export')}>⬇</button>
       <button className="btn icon" aria-label="Undo" disabled={!canUndo} onClick={undo}>↶</button>
       <button className="btn icon" aria-label="Redo" disabled={!canRedo} onClick={redo}>↷</button>
       <button className="btn icon" aria-label="Toggle units" onClick={() => setUnit(unit === 'metric' ? 'imperial' : 'metric')}>{unit === 'metric' ? 'm' : 'ft'}</button>
@@ -97,6 +106,7 @@ export function Editor() {
         <>
           <button className={`tb${tool === 'measure' ? ' on' : ''}`} onClick={() => setTool(tool === 'measure' ? 'select' : 'measure')}><i>📏</i>Measure</button>
           <button className={`tb${tool === 'corners' ? ' on' : ''}`} onClick={() => setTool(tool === 'corners' ? 'select' : 'corners')}><i>✥</i>Corners</button>
+          <button className={`tb${paths ? ' on' : ''}`} onClick={() => setPaths(!paths)}><i>⇹</i>Paths</button>
         </>
       ) : (
         <button className="tb" onClick={() => { useStore.getState().select(null); setWalk(true); }}><i>🚶</i>Walk</button>
@@ -104,6 +114,24 @@ export function Editor() {
       <button className={`tb${snapOn ? ' on' : ''}`} onClick={() => setSnapOn(!snapOn)}><i>🧲</i>Snap</button>
       {!desktop && <button className="tb" disabled={!selected} onClick={() => setSheet('props')}><i>✎</i>Edit</button>}
     </div>
+  );
+
+  const pathsBar = walkways && (
+    <div className="pathsbar">
+      <span className={walkways.count || walkways.doors.some((d) => d.blocked) ? 'bad' : 'ok'}>
+        {walkways.count || walkways.doors.some((d) => d.blocked)
+          ? [walkways.count ? `${walkways.count} narrow` : '', walkways.doors.some((d) => d.blocked) ? 'door blocked' : ''].filter(Boolean).join(' · ')
+          : 'All clear'}
+      </span>
+      <LenInput value={walkWidth} min={30} max={200} onChange={(v) => useStore.getState().setWalkWidth(v)} />
+    </div>
+  );
+
+  const overlays = (
+    <>
+      {dlg === 'export' && <ExportDialog view={view} goTo3d={() => setView('3d')} onClose={() => setDlg(null)} />}
+      {dlg === 'compare' && <Compare onClose={() => setDlg(null)} />}
+    </>
   );
 
   const toggle = walk ? (
@@ -116,7 +144,7 @@ export function Editor() {
   );
 
   const canvas = view === '2d' ? (
-    <Plan2D tool={tool} snapOn={snapOn} />
+    <Plan2D tool={tool} snapOn={snapOn} walkways={walkways} />
   ) : (
     <Suspense fallback={<div className="canvas-wrap loading">Loading 3D…</div>}>
       <View3D walk={walk} dark={dark} />
@@ -128,6 +156,7 @@ export function Editor() {
     return (
       <div className="editor desktop">
         {top}
+        <LayoutBar onCompare={() => setDlg('compare')} />
         <div className="desk-body">
           <aside className="side left">
             <div className="seg tabs">
@@ -140,6 +169,7 @@ export function Editor() {
             {canvas}
             {toggle}
             {!walk && toolbar}
+            {pathsBar}
           </main>
           <aside className="side right">
             <h3>{selected ? selected.name : 'Properties'}</h3>
@@ -147,6 +177,7 @@ export function Editor() {
             <p className="note keys">Shortcuts: Del delete · R rotate (Shift reverse) · arrows nudge (Shift ×10) · Ctrl+Z / Ctrl+Shift+Z undo / redo · Ctrl+D duplicate · L lock · Alt-drag disables snap</p>
           </aside>
         </div>
+        {overlays}
       </div>
     );
   }
@@ -154,11 +185,14 @@ export function Editor() {
   return (
     <div className="editor mobile">
       {top}
+      <LayoutBar onCompare={() => setDlg('compare')} />
       <main className="stage">
         {canvas}
         {toggle}
+        {pathsBar}
       </main>
       {!walk && toolbar}
+      {overlays}
       {sheet && (
         <div className={`sheet${sheet === 'props' ? ' props' : ''}`} role="dialog">
           <div className="sheet-handle" onClick={() => setSheet(null)} />

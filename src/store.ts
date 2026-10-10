@@ -6,14 +6,14 @@ import { bounds, clampOpening, dist, ensureClockwise, rectCorners } from './geom
 const KEY = 'roomshift:v1';
 const MAX_HISTORY = 100;
 
-type Persisted = { rooms: Room[]; unit: Unit; theme: Theme; onboarded: boolean };
+type Persisted = { rooms: Room[]; unit: Unit; theme: Theme; onboarded: boolean; walkWidth: number };
 
 function load(): Persisted {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { rooms: [], unit: 'metric', theme: 'system', onboarded: false, ...JSON.parse(raw) };
+    if (raw) return { rooms: [], unit: 'metric', theme: 'system', onboarded: false, walkWidth: 70, ...JSON.parse(raw) };
   } catch { /* storage unavailable */ }
-  return { rooms: [], unit: 'metric', theme: 'system', onboarded: false };
+  return { rooms: [], unit: 'metric', theme: 'system', onboarded: false, walkWidth: 70 };
 }
 
 export function newRoom(name: string, corners: Pt[], ceilingHeight = 250): Room {
@@ -49,6 +49,11 @@ type State = Persisted & {
   lastKey: string;
   lastAt: number;
 
+  setWalkWidth(n: number): void;
+  setActiveLayout(id: string): void;
+  addLayout(copy: boolean): void;
+  renameLayout(id: string, name: string): void;
+  deleteLayout(id: string): void;
   setUnit(u: Unit): void;
   setTheme(t: Theme): void;
   finishOnboarding(): void;
@@ -88,6 +93,32 @@ export const useStore = create<State>((set, get) => ({
   lastKey: '',
   lastAt: 0,
 
+  setWalkWidth: (walkWidth) => set({ walkWidth }),
+  setActiveLayout: (id) => {
+    get().live((r) => (r.layouts.some((l) => l.id === id) ? { ...r, activeLayoutId: id } : r));
+    set({ selectedId: null });
+  },
+  addLayout: (copy) => {
+    const id = uid('l');
+    get().edit((r) => {
+      const used = new Set(r.layouts.map((l) => l.name));
+      let n = 0, name = '';
+      do { name = `Layout ${String.fromCharCode(65 + (n % 26))}${n >= 26 ? Math.floor(n / 26) : ''}`; n++; } while (used.has(name));
+      const src = activeLayout(r);
+      const items = copy ? src.items.map((i) => ({ ...i, id: uid('f') })) : [];
+      return { ...r, layouts: [...r.layouts, { id, name, items }], activeLayoutId: id };
+    });
+    set({ selectedId: null });
+  },
+  renameLayout: (id, name) => get().edit((r) => ({ ...r, layouts: r.layouts.map((l) => (l.id === id ? { ...l, name } : l)) }), `lname:${id}`),
+  deleteLayout: (id) => {
+    get().edit((r) => {
+      if (r.layouts.length <= 1) return r;
+      const layouts = r.layouts.filter((l) => l.id !== id);
+      return { ...r, layouts, activeLayoutId: r.activeLayoutId === id ? layouts[0].id : r.activeLayoutId };
+    });
+    set({ selectedId: null });
+  },
   setUnit: (unit) => set({ unit }),
   setTheme: (theme) => set({ theme }),
   finishOnboarding: () => set({ onboarded: true }),
@@ -165,7 +196,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 useStore.subscribe((s) => {
   clearTimeout(timer);
   timer = setTimeout(() => {
-    const data: Persisted = { rooms: s.rooms, unit: s.unit, theme: s.theme, onboarded: s.onboarded };
+    const data: Persisted = { rooms: s.rooms, unit: s.unit, theme: s.theme, onboarded: s.onboarded, walkWidth: s.walkWidth };
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* quota or private mode */ }
   }, 200);
 });

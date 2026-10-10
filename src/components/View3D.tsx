@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { activeLayout, useRoom, useStore } from '../store';
 import { bounds, findProblems, itemCorners, pointInPolygon, rad, snapItem, walls, type Wall } from '../geometry';
 import type { Furniture, Pt, Room } from '../types';
+import { register3dCapture } from '../capture3d';
 
 const WALL_T = 10;
 const EYE = 160;
@@ -48,6 +49,7 @@ export default function View3D({ walk, dark }: { walk: boolean; dark: boolean })
           shadow-camera-near={10} shadow-camera-far={size * 5}
           shadow-bias={-0.0004}
         />
+        <CaptureBridge />
         <Shell room={room} walk={walk} pal={pal} />
         <Furnishings room={room} interactive={!walk} setDragging={setDragging} accent={pal.accent} />
         {walk ? (
@@ -67,6 +69,15 @@ export default function View3D({ walk, dark }: { walk: boolean; dark: boolean })
       {walk && <Joystick joy={joy} />}
     </div>
   );
+}
+
+function CaptureBridge() {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    register3dCapture(() => { gl.render(scene, camera); return gl.domElement.toDataURL('image/png'); });
+    return () => register3dCapture(null);
+  }, [gl, scene, camera]);
+  return null;
 }
 
 /* ---------------- Room shell: floor, walls, openings ---------------- */
